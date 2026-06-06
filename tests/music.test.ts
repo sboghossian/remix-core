@@ -7,6 +7,9 @@ import {
   keyCompatibility,
   musicCoherence,
   parseKey,
+  ratioToSemitones,
+  semitonesToKey,
+  semitonesToRatio,
 } from "../src/adapters/music/index";
 
 const stem = (id: string, key: string, bpm: number): Stem<MusicMeta> => ({
@@ -64,6 +67,37 @@ describe("bpmCompatible", () => {
   it("rejects drifting tempos", () => {
     expect(bpmCompatible(120, 137)).toBe(false);
     expect(bpmCompatible(120, 95)).toBe(false);
+  });
+});
+
+describe("semitonesToKey (real-time key matching)", () => {
+  it("is zero for the same tonic, ignores mode", () => {
+    expect(semitonesToKey("C", "C")).toBe(0);
+    expect(semitonesToKey("Cm", "C")).toBe(0); // same tonic pitch class, mode ignored for pitch
+  });
+
+  it("transposes up to the nearest tonic", () => {
+    expect(semitonesToKey("C", "D")).toBe(2);
+    expect(semitonesToKey("C", "E")).toBe(4);
+  });
+
+  it("chooses the nearest direction instead of jumping an octave", () => {
+    // C -> A is +9 up or -3 down; pick the short way (-3)
+    expect(semitonesToKey("C", "A")).toBe(-3);
+    expect(semitonesToKey("C", "Bb")).toBe(-2);
+  });
+
+  it("returns null on an unparseable key", () => {
+    expect(semitonesToKey("C", "???")).toBeNull();
+  });
+});
+
+describe("semitone <-> ratio", () => {
+  it("round-trips", () => {
+    expect(semitonesToRatio(0)).toBeCloseTo(1);
+    expect(semitonesToRatio(12)).toBeCloseTo(2);
+    expect(ratioToSemitones(2)).toBeCloseTo(12);
+    expect(ratioToSemitones(semitonesToRatio(7))).toBeCloseTo(7);
   });
 });
 

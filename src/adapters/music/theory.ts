@@ -120,3 +120,29 @@ export function bpmCompatible(a: number, b: number, tolerance = 0.06): boolean {
   }
   return false;
 }
+
+/**
+ * Semitones to transpose a stem in key `from` so its tonic lands on key `to`.
+ * Chooses the nearest direction (range -6..+5) so we never jump an octave.
+ * Returns null if either key is unparseable.
+ *
+ * This is the "different keys, in real time" half of the sync — the player
+ * feeds the result to the pitch shifter.
+ */
+export function semitonesToKey(from: string, to: string): number | null {
+  const a = parseKey(from);
+  const b = parseKey(to);
+  if (!a || !b) return null;
+  const diff = (((b.pc - a.pc) % 12) + 12) % 12; // 0..11
+  return diff > 6 ? diff - 12 : diff; // -5..+6 -> nearest
+}
+
+/** Convert a pitch interval in semitones to a frequency/playback ratio. */
+export function semitonesToRatio(semitones: number): number {
+  return 2 ** (semitones / 12);
+}
+
+/** Convert a frequency/playback ratio back to semitones. */
+export function ratioToSemitones(ratio: number): number {
+  return 12 * Math.log2(ratio);
+}

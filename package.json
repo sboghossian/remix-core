@@ -1,7 +1,7 @@
 {
   "name": "remix-core",
-  "version": "0.1.0",
-  "description": "Domain-agnostic remix engine: stems -> recombine -> pluggable coherence layer. Music matches key+BPM; other domains plug their own rules.",
+  "version": "0.2.0",
+  "description": "Domain-agnostic remix engine: stems -> recombine -> pluggable coherence layer. Music adapter is a real browser audio engine (real-time sync + mix + export); other domains plug their own rules.",
   "type": "module",
   "license": "MIT",
   "keywords": ["remix", "stems", "composition", "coherence", "engine"],
@@ -12,6 +12,8 @@
   "files": ["src"],
   "scripts": {
     "demo": "tsx examples/cli.ts",
+    "demo:web": "vite demo",
+    "demo:build": "vite build demo --base ./ --outDir ../demo-dist --emptyOutDir",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -19,6 +21,7 @@
     "@types/node": "^22.10.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
+    "vite": "^6.0.3",
     "vitest": "^2.1.8"
   }
 }

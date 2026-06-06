@@ -1,23 +1,16 @@
 /**
  * Music adapter for remix-core.
  *
- * Stem meta = { key, bpm }. The coherence layer checks every stem against the
- * anchor (first stem = the downbeat you build on) and flags key clashes and
- * tempo drift — the deterministic core of what Hit-Boy's demo did "in real time".
- *
- * Fully deterministic, zero AI: proof that the engine needs no model — only
- * *some* adapters opt into one.
+ * Two halves:
+ *  - Coherence (Node-safe, deterministic): flag key/BPM clashes on recombine.
+ *  - Audio engine (browser): actually load/synth stems, sync them in real time
+ *    (time-stretch to anchor BPM + pitch-shift to anchor key), mix, loop, and
+ *    export — the full Hit-Boy "open-source album" mechanic.
  */
 
 import type { CoherenceLayer, Issue } from "../../types";
+import type { MusicMeta } from "./meta";
 import { bpmCompatible, keyCompatibility } from "./theory";
-
-export interface MusicMeta {
-  /** Musical key, e.g. "C", "Am", "F#m". */
-  key: string;
-  /** Tempo in beats per minute. */
-  bpm: number;
-}
 
 export const musicCoherence: CoherenceLayer<MusicMeta> = {
   name: "music/key-bpm",
@@ -62,4 +55,28 @@ export const musicCoherence: CoherenceLayer<MusicMeta> = {
   },
 };
 
-export { bpmCompatible, keyCompatibility, parseKey } from "./theory";
+// Types
+export type { MusicMeta, MusicStem, AudioStem } from "./meta";
+export type { AlbumManifest, SongManifest, StemManifest } from "./album";
+export type { PitchShifter } from "./pitch";
+export type { SongSpec } from "./synth";
+export type { RemixPlayerOptions } from "./player";
+
+// Coherence + theory (Node-safe)
+export {
+  bpmCompatible,
+  keyCompatibility,
+  parseKey,
+  semitonesToKey,
+  semitonesToRatio,
+  ratioToSemitones,
+} from "./theory";
+
+// Manifest + export (Node-safe)
+export { validateAlbum, listStems } from "./album";
+export { encodeWAV } from "./wav";
+
+// Audio engine (browser)
+export { createPitchShifter } from "./pitch";
+export { synthesizeSong } from "./synth";
+export { RemixPlayer } from "./player";
