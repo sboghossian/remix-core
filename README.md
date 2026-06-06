@@ -94,6 +94,9 @@ What it does, mapped to the demo:
 - **Export**: render the recombination to a WAV (`OfflineAudioContext`).
 - **Album manifest** (`AlbumManifest`): the "dump your files" format — songs → stems
   → `{ kind, key, bpm, url }`, shareable and forkable.
+- **Stem synthesizer** (`synthesizeSong`): renders 15 instruments — kick, 808, snare,
+  clap, hat, shaker, tom, bass, arp, chords, melody, lead, pad, vocal, fx — at any
+  key + BPM, so the demo has real audio with no asset files.
 
 ### The playable demo
 
@@ -103,9 +106,10 @@ Live: **https://remix-core.pages.dev** — or run it locally:
 npm run demo:web      # the open-source album, in your browser
 ```
 
-Three songs are synthesized on the fly (no audio assets, nothing copyrighted) so you
-can hear three different keys and tempos lock together. Or bring your own `.wav`
-stems via an `AlbumManifest` and the same engine plays them.
+Twenty songs (15 stems each, 300 stems) across every key and tempos from 84–150 BPM
+are synthesized on demand — no audio assets, nothing copyrighted — so you can hear
+different keys and tempos lock together. Or bring your own `.wav` stems via an
+`AlbumManifest` and the same engine plays them.
 
 > Fidelity note: the granular pitch-shifter is zero-dependency and good for a demo;
 > extreme shifts have audible artifacts. A WASM time-stretch (Rubberband/soundtouch)

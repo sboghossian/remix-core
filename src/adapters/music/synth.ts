@@ -18,16 +18,41 @@ export interface SongSpec {
   bars: number;
 }
 
-const ALL_KINDS = ["kick", "snare", "hat", "bass", "melody", "pad"] as const;
+const ALL_KINDS = [
+  "kick",
+  "808",
+  "snare",
+  "clap",
+  "hat",
+  "shaker",
+  "tom",
+  "bass",
+  "arp",
+  "chords",
+  "melody",
+  "lead",
+  "pad",
+  "vocal",
+  "fx",
+] as const;
 type Kind = (typeof ALL_KINDS)[number];
 
 const LABEL: Record<Kind, string> = {
   kick: "Kick",
+  "808": "808",
   snare: "Snare",
+  clap: "Clap",
   hat: "Hats",
+  shaker: "Shaker",
+  tom: "Toms",
   bass: "Bass",
+  arp: "Arp",
+  chords: "Chords",
   melody: "Melody",
+  lead: "Lead",
   pad: "Pad",
+  vocal: "Vocal",
+  fx: "FX",
 };
 
 function midiToFreq(m: number): number {
@@ -176,6 +201,211 @@ const BUILDERS: Record<Kind, (ctx: OfflineAudioContext, spec: SongSpec, dest: Au
       o.start(0);
       o.stop(total);
     }
+  },
+  "808"(ctx, spec, dest) {
+    const pc = parseKey(spec.key)?.pc ?? 0;
+    const root = 12 * (1 + 1) + pc; // octave 1 — deep sub
+    const beat = 60 / spec.bpm;
+    const total = spec.bars * 4 * beat;
+    const pattern = [0, 1.5, 2, 3.5]; // syncopated
+    for (let b = 0; b < spec.bars; b++) {
+      for (const pos of pattern) {
+        const t = (b * 4 + pos) * beat;
+        if (t >= total) continue;
+        const o = ctx.createOscillator();
+        o.type = "sine";
+        o.frequency.setValueAtTime(midiToFreq(root + 7), t); // glide from fifth
+        o.frequency.exponentialRampToValueAtTime(midiToFreq(root), t + 0.06);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.6, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+        o.connect(g).connect(dest);
+        o.start(t);
+        o.stop(t + 0.75);
+      }
+    }
+  },
+  clap(ctx, spec, dest) {
+    const beat = 60 / spec.bpm;
+    for (let b = 0; b < spec.bars; b++) {
+      for (const bi of [1, 3]) {
+        const t0 = (b * 4 + bi) * beat;
+        for (const off of [0, 0.01, 0.02, 0.045]) {
+          const t = t0 + off;
+          const n = ctx.createBufferSource();
+          n.buffer = noiseBuffer(ctx, 0.08);
+          const bp = ctx.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 1200;
+          bp.Q.value = 1.2;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(off === 0.045 ? 0.35 : 0.25, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+          n.connect(bp).connect(g).connect(dest);
+          n.start(t);
+          n.stop(t + 0.09);
+        }
+      }
+    }
+  },
+  shaker(ctx, spec, dest) {
+    const beat = 60 / spec.bpm;
+    const sixteenth = beat / 4;
+    const total = spec.bars * 4 * beat;
+    let i = 0;
+    for (let t = 0; t < total - 1e-6; t += sixteenth) {
+      const n = ctx.createBufferSource();
+      n.buffer = noiseBuffer(ctx, 0.03);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 9000;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(i % 2 === 0 ? 0.06 : 0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
+      n.connect(hp).connect(g).connect(dest);
+      n.start(t);
+      n.stop(t + 0.04);
+      i++;
+    }
+  },
+  tom(ctx, spec, dest) {
+    const pc = parseKey(spec.key)?.pc ?? 0;
+    const beat = 60 / spec.bpm;
+    const roots = [12 * (3 + 1) + pc, 12 * (3 + 1) + pc - 3, 12 * (2 + 1) + pc + 7];
+    for (let b = 0; b < spec.bars; b++) {
+      const base = (b * 4 + 3) * beat; // fill on beat 4
+      roots.forEach((m, j) => {
+        const t = base + j * (beat / 3);
+        const o = ctx.createOscillator();
+        o.type = "sine";
+        o.frequency.setValueAtTime(midiToFreq(m), t);
+        o.frequency.exponentialRampToValueAtTime(midiToFreq(m) * 0.7, t + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.45, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+        o.connect(g).connect(dest);
+        o.start(t);
+        o.stop(t + 0.2);
+      });
+    }
+  },
+  arp(ctx, spec, dest) {
+    const k = parseKey(spec.key);
+    const pc = k?.pc ?? 0;
+    const third = k?.mode === "minor" ? 3 : 4;
+    const seq = [0, third, 7, 12, 7, third];
+    const root = 12 * (4 + 1) + pc;
+    const beat = 60 / spec.bpm;
+    const sixteenth = beat / 4;
+    const total = spec.bars * 4 * beat;
+    const g = ctx.createGain();
+    g.gain.value = 0.22;
+    g.connect(dest);
+    let i = 0;
+    for (let t = 0; t < total - 1e-6; t += sixteenth) {
+      pluck(ctx, "sawtooth", midiToFreq(root + seq[i % seq.length]!), t, sixteenth * 0.9, 0.5, g);
+      i++;
+    }
+  },
+  chords(ctx, spec, dest) {
+    const k = parseKey(spec.key);
+    const pc = k?.pc ?? 0;
+    const third = k?.mode === "minor" ? 3 : 4;
+    const root = 12 * (4 + 1) + pc;
+    const notes = [root, root + third, root + 7];
+    const beat = 60 / spec.bpm;
+    const total = spec.bars * 4 * beat;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 2000;
+    const g = ctx.createGain();
+    g.gain.value = 0.18;
+    lp.connect(g).connect(dest);
+    for (let t = beat / 2; t < total - 1e-6; t += beat) {
+      for (const n of notes) pluck(ctx, "sawtooth", midiToFreq(n), t, beat * 0.4, 0.4, lp);
+    }
+  },
+  lead(ctx, spec, dest) {
+    const k = parseKey(spec.key);
+    const pc = k?.pc ?? 0;
+    const third = k?.mode === "minor" ? 3 : 4;
+    const seq = [0, 7, third, 12];
+    const root = 12 * (5 + 1) + pc; // octave 5
+    const beat = 60 / spec.bpm;
+    const total = spec.bars * 4 * beat;
+    const noteLen = beat * 2;
+    const g = ctx.createGain();
+    g.gain.value = 0.16;
+    g.connect(dest);
+    let i = 0;
+    for (let t = 0; t < total - 1e-6; t += noteLen) {
+      const freq = midiToFreq(root + seq[i % seq.length]!);
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.value = freq;
+      const lfo = ctx.createOscillator(); // vibrato
+      lfo.frequency.value = 5;
+      const lg = ctx.createGain();
+      lg.gain.value = freq * 0.01;
+      lfo.connect(lg).connect(o.frequency);
+      lfo.start(t);
+      lfo.stop(t + noteLen);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.linearRampToValueAtTime(0.6, t + 0.05);
+      env.gain.setValueAtTime(0.6, t + noteLen - 0.1);
+      env.gain.linearRampToValueAtTime(0.0001, t + noteLen);
+      o.connect(env).connect(g);
+      o.start(t);
+      o.stop(t + noteLen + 0.02);
+      i++;
+    }
+  },
+  vocal(ctx, spec, dest) {
+    const k = parseKey(spec.key);
+    const pc = k?.pc ?? 0;
+    const third = k?.mode === "minor" ? 3 : 4;
+    const root = 12 * (4 + 1) + pc;
+    const notes = [root, root + third, root + 7];
+    const total = spec.bars * 4 * (60 / spec.bpm);
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, 0);
+    out.gain.linearRampToValueAtTime(0.14, 1.2);
+    out.gain.setValueAtTime(0.14, Math.max(1.2, total - 0.6));
+    out.gain.linearRampToValueAtTime(0.0001, total);
+    out.connect(dest);
+    for (const formant of [700, 1150]) {
+      // an "ah"-ish vowel
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = formant;
+      bp.Q.value = 6;
+      bp.connect(out);
+      for (const n of notes) {
+        const o = ctx.createOscillator();
+        o.type = "sawtooth";
+        o.frequency.value = midiToFreq(n);
+        o.connect(bp);
+        o.start(0);
+        o.stop(total);
+      }
+    }
+  },
+  fx(ctx, spec, dest) {
+    const total = spec.bars * 4 * (60 / spec.bpm);
+    const n = ctx.createBufferSource();
+    n.buffer = noiseBuffer(ctx, total);
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.setValueAtTime(200, 0);
+    hp.frequency.exponentialRampToValueAtTime(8000, total); // riser sweep
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, 0);
+    g.gain.exponentialRampToValueAtTime(0.12, total);
+    n.connect(hp).connect(g).connect(dest);
+    n.start(0);
+    n.stop(total);
   },
 };
 
