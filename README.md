@@ -3,6 +3,10 @@
 A domain-agnostic remix engine. Bring your own components ("stems") and your own
 rules ("coherence layer"); the engine recombines them and tells you what doesn't fit.
 
+**▶ Live demo (the open-source album): https://remix-core.pages.dev**
+Three songs, three keys, three tempos — pick stems across them and hear the engine
+lock them in real time.
+
 It started as one observation. In an interview about AI and creativity, the producer
 Hit-Boy demoed an "open-source album": dump every stem from a track — snare, bass,
 vocal, melody — and let anyone recombine components across songs, while software
@@ -91,7 +95,9 @@ What it does, mapped to the demo:
 - **Album manifest** (`AlbumManifest`): the "dump your files" format — songs → stems
   → `{ kind, key, bpm, url }`, shareable and forkable.
 
-### Run the playable demo
+### The playable demo
+
+Live: **https://remix-core.pages.dev** — or run it locally:
 
 ```bash
 npm run demo:web      # the open-source album, in your browser
